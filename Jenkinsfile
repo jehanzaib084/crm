@@ -54,7 +54,7 @@ pipeline {
                 dir('backend') {
                     sh '''
                         npm ci
-                        node -c src/server.js && echo "✅ Backend syntax valid"
+                        node --check src/server.js && echo "✅ Backend syntax valid"
                     '''
                 }
             }
@@ -147,19 +147,24 @@ pipeline {
                     try {
                         withCredentials([usernamePassword(credentialsId: 'fd9b973e-1c72-4698-b6dd-5030492cbfa4', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_PASS')]) {
                             sh '''
-                                echo ${DOCKERHUB_PASS} | docker login -u ${DOCKERHUB_USER} --password-stdin
+                                # Normalize username to lowercase (Docker Hub usernames are case-sensitive)
+                                DOCKER_USER_LOWER=$(echo "${DOCKERHUB_USER}" | tr '[:upper:]' '[:lower:]')
                                 
-                                # Use the username from credentials (may differ from env var)
-                                docker push ${DOCKERHUB_USER}/crm-frontend:${IMAGE_TAG}
-                                docker push ${DOCKERHUB_USER}/crm-frontend:latest
+                                echo "🔐 Logging in to Docker Hub as: ${DOCKER_USER_LOWER}"
+                                echo ${DOCKERHUB_PASS} | docker login -u ${DOCKER_USER_LOWER} --password-stdin
                                 
-                                docker push ${DOCKERHUB_USER}/crm-backend:${IMAGE_TAG}
-                                docker push ${DOCKERHUB_USER}/crm-backend:latest
+                                # Use lowercase username for pushing (Docker Hub requirement)
+                                echo "📤 Pushing images to Docker Hub..."
+                                docker push ${DOCKER_USER_LOWER}/crm-frontend:${IMAGE_TAG}
+                                docker push ${DOCKER_USER_LOWER}/crm-frontend:latest
                                 
-                                docker push ${DOCKERHUB_USER}/crm-db:${IMAGE_TAG}
-                                docker push ${DOCKERHUB_USER}/crm-db:latest
+                                docker push ${DOCKER_USER_LOWER}/crm-backend:${IMAGE_TAG}
+                                docker push ${DOCKER_USER_LOWER}/crm-backend:latest
                                 
-                                echo "✅ All images pushed successfully"
+                                docker push ${DOCKER_USER_LOWER}/crm-db:${IMAGE_TAG}
+                                docker push ${DOCKER_USER_LOWER}/crm-db:latest
+                                
+                                echo "✅ All images pushed successfully to ${DOCKER_USER_LOWER}/crm-*"
                             '''
                         }
                     } catch (Exception e) {
@@ -197,38 +202,69 @@ pipeline {
                     ) == 0
                     
                     if (kubectlAvailable && fileExists('k8s')) {
-                        // Create namespace first
-                        sh '''
-                            kubectl apply -f k8s/namespace.yaml || kubectl create namespace idurar-crm || true
-                        '''
-                        
-                        // Create Docker Hub secret if it doesn't exist
+                        // Load kubeconfig credential and deploy
                         try {
-                            // Try UUID first, fallback to dockerhub-credentials
-                            withCredentials([usernamePassword(credentialsId: 'fd9b973e-1c72-4698-b6dd-5030492cbfa4', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_PASS')]) {
+                            withCredentials([file(credentialsId: '2f2b05cf-882d-4e0a-8393-18f5ef3e75ee', variable: 'KUBECONFIG_FILE')]) {
                                 sh '''
-                                    kubectl get secret dockerhub-secret -n idurar-crm || \
-                                    kubectl create secret docker-registry dockerhub-secret \
-                                        --docker-server=https://index.docker.io/v1/ \
-                                        --docker-username=${DOCKERHUB_USER} \
-                                        --docker-password=${DOCKERHUB_PASS} \
-                                        --namespace=idurar-crm \
-                                        --dry-run=client -o yaml | kubectl apply -f - || true
+                                    export KUBECONFIG=${KUBECONFIG_FILE}
+                                    echo "✅ Kubeconfig loaded from credentials"
+                                    
+                                    # Verify cluster access
+                                    kubectl cluster-info || {
+                                        echo "❌ Could not connect to cluster - check kubeconfig"
+                                        exit 1
+                                    }
+                                    
+                                    # Create namespace first
+                                    kubectl apply -f k8s/namespace.yaml || kubectl create namespace idurar-crm || true
+                                '''
+                                
+                                // Create Docker Hub secret if it doesn't exist
+                                try {
+                                    withCredentials([
+                                        file(credentialsId: '2f2b05cf-882d-4e0a-8393-18f5ef3e75ee', variable: 'KUBECONFIG_FILE'),
+                                        usernamePassword(credentialsId: 'fd9b973e-1c72-4698-b6dd-5030492cbfa4', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_PASS')
+                                    ]) {
+                                        sh '''
+                                            export KUBECONFIG=${KUBECONFIG_FILE}
+                                            
+                                            # Normalize username to lowercase
+                                            DOCKER_USER_LOWER=$(echo "${DOCKERHUB_USER}" | tr '[:upper:]' '[:lower:]')
+                                            
+                                            kubectl get secret dockerhub-secret -n idurar-crm || \
+                                            kubectl create secret docker-registry dockerhub-secret \
+                                                --docker-server=https://index.docker.io/v1/ \
+                                                --docker-username=${DOCKER_USER_LOWER} \
+                                                --docker-password=${DOCKERHUB_PASS} \
+                                                --namespace=idurar-crm \
+                                                --dry-run=client -o yaml | kubectl apply -f - || true
+                                        '''
+                                    }
+                                } catch (Exception e) {
+                                    echo "⚠️ Could not create K8s secret - credentials not available"
+                                }
+                                
+                                // Apply all Kubernetes manifests
+                                sh '''
+                                    export KUBECONFIG=${KUBECONFIG_FILE}
+                                    
+                                    echo "📦 Applying Kubernetes manifests..."
+                                    kubectl apply -f k8s/mongodb.yaml
+                                    kubectl apply -f k8s/backend.yaml
+                                    kubectl apply -f k8s/frontend.yaml
+                                    
+                                    echo "✅ Kubernetes manifests applied"
+                                    echo ""
+                                    echo "📊 Deployment Status:"
+                                    kubectl get pods -n idurar-crm
+                                    kubectl get svc -n idurar-crm
                                 '''
                             }
                         } catch (Exception e) {
-                            echo "⚠️ Could not create K8s secret - credentials not available"
+                            echo "⚠️ Kubeconfig credential '2f2b05cf-882d-4e0a-8393-18f5ef3e75ee' not found!"
+                            echo "⚠️ Skipping Kubernetes deployment"
+                            echo "⚠️ Please verify kubeconfig credential in Jenkins"
                         }
-                        
-                        // Apply all Kubernetes manifests
-                        sh '''
-                            kubectl apply -f k8s/mongodb.yaml || echo "⚠️ MongoDB deployment skipped"
-                            kubectl apply -f k8s/backend.yaml || echo "⚠️ Backend deployment skipped"
-                            kubectl apply -f k8s/frontend.yaml || echo "⚠️ Frontend deployment skipped"
-                            
-                            echo "✅ Kubernetes manifests applied"
-                            kubectl get pods -n idurar-crm 2>/dev/null || echo "⚠️ Pods not found"
-                        '''
                     } else {
                         echo "⚠️ kubectl not available or k8s directory not found - skipping Kubernetes deployment"
                     }
@@ -237,13 +273,20 @@ pipeline {
             post {
                 success {
                     echo '✅ Kubernetes deployment stage completed'
-                    sh '''
-                        if command -v kubectl &> /dev/null; then
-                            echo "📊 Deployment Status:"
-                            kubectl get pods -n idurar-crm 2>/dev/null || echo "Namespace not found"
-                            kubectl get svc -n idurar-crm 2>/dev/null || echo "Services not found"
-                        fi
-                    '''
+                    script {
+                        try {
+                            withCredentials([file(credentialsId: '2f2b05cf-882d-4e0a-8393-18f5ef3e75ee', variable: 'KUBECONFIG_FILE')]) {
+                                sh '''
+                                    export KUBECONFIG=${KUBECONFIG_FILE}
+                                    echo "📊 Final Deployment Status:"
+                                    kubectl get pods -n idurar-crm 2>/dev/null || echo "⚠️ Pods not found"
+                                    kubectl get svc -n idurar-crm 2>/dev/null || echo "⚠️ Services not found"
+                                '''
+                            }
+                        } catch (Exception e) {
+                            echo "⚠️ Could not check deployment status - kubeconfig not available"
+                        }
+                    }
                 }
                 failure {
                     echo '⚠️ Kubernetes deployment failed or skipped'
