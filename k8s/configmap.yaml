@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: idurar-config
+data:
+  # Backend configuration
+  PORT: "8888"
+  NODE_ENV: "production"
+  DATABASE: "mongodb://mongodb-service:27017/idurar"
+  
+  # Frontend configuration (if needed)
+  VITE_BACKEND_SERVER: "/"
