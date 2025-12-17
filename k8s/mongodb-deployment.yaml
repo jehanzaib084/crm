@@ -1,3 +1,8 @@
+# MongoDB Deployment for IDURAR CRM
+# PRODUCTION NOTE: Authentication is optional via mongodb-secret but STRONGLY RECOMMENDED
+# For production: Create mongodb-secret (see mongodb-secret.yaml.example)
+# For development/testing: Deploy as-is (no authentication)
+
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:

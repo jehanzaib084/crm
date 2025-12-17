@@ -98,9 +98,11 @@ The pipeline uses the namespace `idurar-crm` by default. To change it, update th
 NAMESPACE = 'your-namespace-name'
 ```
 
-### Step 4: Set Up MongoDB Authentication (Recommended for Production)
+### Step 4: Set Up MongoDB Authentication (Strongly Recommended for Production)
 
-Create a Kubernetes Secret for MongoDB authentication:
+For production environments, MongoDB should always be secured with authentication. For development/testing, you can skip this step.
+
+**Create MongoDB Secret:**
 
 ```bash
 kubectl create secret generic mongodb-secret \
@@ -109,7 +111,7 @@ kubectl create secret generic mongodb-secret \
   -n idurar-crm
 ```
 
-A template file is provided at `k8s/mongodb-secret.yaml.example`. Copy and customize it:
+Or use the provided template:
 
 ```bash
 cp k8s/mongodb-secret.yaml.example k8s/mongodb-secret.yaml
@@ -117,7 +119,19 @@ cp k8s/mongodb-secret.yaml.example k8s/mongodb-secret.yaml
 kubectl apply -f k8s/mongodb-secret.yaml -n idurar-crm
 ```
 
-**Important**: Never commit `mongodb-secret.yaml` to version control. It's already excluded in `.gitignore`.
+**Important**: Never commit `*-secret.yaml` files to version control. They're already excluded in `.gitignore`.
+
+**Update Backend Connection String:**
+
+When MongoDB authentication is enabled, you must also update the backend to use authenticated connection. Use the backend secret template:
+
+```bash
+cp k8s/backend-secret.yaml.example k8s/backend-secret.yaml
+# Edit backend-secret.yaml with your MongoDB credentials
+kubectl apply -f k8s/backend-secret.yaml -n idurar-crm
+```
+
+Then update `k8s/backend-deployment.yaml` to use the secret (see comments in backend-secret.yaml.example).
 
 ### Step 5: Set Up Additional Backend Environment Variables (Optional)
 

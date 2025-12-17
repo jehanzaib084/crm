@@ -100,7 +100,7 @@ pipeline {
                                 fi
                                 
                                 # Run linter if available
-                                if npm run lint --dry-run 2>/dev/null; then
+                                if grep -q '"lint"' package.json; then
                                     echo "Running frontend linter..."
                                     npm run lint || echo "Linting completed with warnings"
                                 fi
@@ -221,6 +221,8 @@ pipeline {
                 # Clean up Docker images to save space
                 docker rmi ${BACKEND_IMAGE}:${IMAGE_TAG} || true
                 docker rmi ${FRONTEND_IMAGE}:${IMAGE_TAG} || true
+                docker rmi ${BACKEND_IMAGE}:latest || true
+                docker rmi ${FRONTEND_IMAGE}:latest || true
             '''
         }
     }
