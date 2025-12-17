@@ -34,6 +34,11 @@ app.use(compression());
 // // default options
 // app.use(fileUpload());
 
+// Health check endpoint for Kubernetes probes
+app.get('/api/ping', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // Here our API Routes
 
 app.use('/api', coreAuthRouter);
