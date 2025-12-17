@@ -85,8 +85,8 @@ pipeline {
                         echo '🧪 Validating Backend...'
                         dir('backend') {
                             sh '''
-                                node -c src/server.js && echo "✅ Backend syntax valid"
-                                node -c src/app.js && echo "✅ App syntax valid" || echo "⚠️ App.js check skipped"
+                                node --check src/server.js && echo "✅ Backend syntax valid"
+                                node --check src/app.js && echo "✅ App syntax valid" || echo "⚠️ App.js check skipped"
                             '''
                         }
                     }
