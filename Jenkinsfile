@@ -130,7 +130,7 @@ pipeline {
                     steps {
                         echo '🧪 Testing Docker Compose...'
                         sh '''
-                            docker-compose config > /dev/null && echo "✅ Docker Compose config valid" || echo "⚠️ Docker Compose check skipped"
+                            docker compose config > /dev/null 2>&1 && echo "✅ Docker Compose config valid" || echo "⚠️ Docker Compose check skipped"
                         '''
                     }
                 }
