@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: your-registry/idurar-frontend:latest
+        image: DOCKER_REGISTRY_PLACEHOLDER/idurar-frontend:latest
         ports:
         - containerPort: 80
         livenessProbe:

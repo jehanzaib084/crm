@@ -76,17 +76,19 @@ FRONTEND_IMAGE = "yourusername/idurar-frontend"
 
 ### Step 2: Update Kubernetes Manifests
 
-Edit the deployment files in the `k8s/` directory:
+The Kubernetes manifests use a placeholder `DOCKER_REGISTRY_PLACEHOLDER` which will be automatically replaced by the Jenkins pipeline with your actual registry URL. If you need to manually edit them:
 
 **k8s/backend-deployment.yaml**:
 ```yaml
-image: your-registry/idurar-backend:latest  # Update with your registry
+image: DOCKER_REGISTRY_PLACEHOLDER/idurar-backend:latest  # Will be updated by pipeline
 ```
 
 **k8s/frontend-deployment.yaml**:
 ```yaml
-image: your-registry/idurar-frontend:latest  # Update with your registry
+image: DOCKER_REGISTRY_PLACEHOLDER/idurar-frontend:latest  # Will be updated by pipeline
 ```
+
+The Jenkins pipeline automatically updates these placeholders during deployment.
 
 ### Step 3: Configure Kubernetes Namespace
 
@@ -96,24 +98,46 @@ The pipeline uses the namespace `idurar-crm` by default. To change it, update th
 NAMESPACE = 'your-namespace-name'
 ```
 
-### Step 4: Set Up Backend Environment Variables
+### Step 4: Set Up MongoDB Authentication (Recommended for Production)
 
-For production deployment, you may need to create a Kubernetes Secret for sensitive backend configuration:
+Create a Kubernetes Secret for MongoDB authentication:
 
 ```bash
-kubectl create secret generic backend-env \
-  --from-literal=DATABASE=mongodb://mongodb-service:27017/idurar \
-  --from-literal=JWT_SECRET=your-jwt-secret \
-  --from-literal=NODE_ENV=production \
+kubectl create secret generic mongodb-secret \
+  --from-literal=username=admin \
+  --from-literal=password=your-secure-password \
   -n idurar-crm
 ```
 
-Then update `k8s/backend-deployment.yaml` to use the secret:
+A template file is provided at `k8s/mongodb-secret.yaml.example`. Copy and customize it:
+
+```bash
+cp k8s/mongodb-secret.yaml.example k8s/mongodb-secret.yaml
+# Edit mongodb-secret.yaml with your credentials (base64 encoded)
+kubectl apply -f k8s/mongodb-secret.yaml -n idurar-crm
+```
+
+**Important**: Never commit `mongodb-secret.yaml` to version control. It's already excluded in `.gitignore`.
+
+### Step 5: Set Up Additional Backend Environment Variables (Optional)
+
+For sensitive backend configuration like JWT secrets, create additional secrets:
+
+```bash
+kubectl create secret generic backend-secrets \
+  --from-literal=JWT_SECRET=your-jwt-secret \
+  --from-literal=SESSION_SECRET=your-session-secret \
+  -n idurar-crm
+```
+
+Then update `k8s/backend-deployment.yaml` to reference it:
 
 ```yaml
 envFrom:
+  - configMapRef:
+      name: idurar-config
   - secretRef:
-      name: backend-env
+      name: backend-secrets
 ```
 
 ## Creating a Jenkins Pipeline Job

@@ -171,10 +171,21 @@ pipeline {
                     echo "Creating namespace if it doesn't exist..."
                     kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
                     
-                    echo "Applying Kubernetes manifests..."
-                    kubectl apply -f k8s/ -n ${NAMESPACE}
+                    echo "Preparing Kubernetes manifests with registry URLs..."
+                    # Create temporary directory for processed manifests
+                    mkdir -p k8s-deploy
                     
-                    echo "Updating deployment images..."
+                    # Replace placeholders with actual registry in deployment files
+                    for file in k8s/*.yaml; do
+                        if [ -f "$file" ]; then
+                            sed "s|DOCKER_REGISTRY_PLACEHOLDER|${DOCKER_REGISTRY}|g" "$file" > "k8s-deploy/$(basename $file)"
+                        fi
+                    done
+                    
+                    echo "Applying Kubernetes manifests..."
+                    kubectl apply -f k8s-deploy/ -n ${NAMESPACE}
+                    
+                    echo "Updating deployment images to specific version..."
                     kubectl set image deployment/idurar-backend backend=${BACKEND_IMAGE}:${IMAGE_TAG} -n ${NAMESPACE}
                     kubectl set image deployment/idurar-frontend frontend=${FRONTEND_IMAGE}:${IMAGE_TAG} -n ${NAMESPACE}
                     
@@ -187,6 +198,9 @@ pipeline {
                     echo "Current deployment status:"
                     kubectl get pods -n ${NAMESPACE}
                     kubectl get services -n ${NAMESPACE}
+                    
+                    # Cleanup temporary directory
+                    rm -rf k8s-deploy
                 '''
             }
         }

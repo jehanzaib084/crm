@@ -16,16 +16,12 @@ spec:
     spec:
       containers:
       - name: backend
-        image: your-registry/idurar-backend:latest
+        image: DOCKER_REGISTRY_PLACEHOLDER/idurar-backend:latest
         ports:
         - containerPort: 8888
-        env:
-        - name: DATABASE
-          value: "mongodb://mongodb-service:27017/idurar"
-        - name: PORT
-          value: "8888"
-        - name: NODE_ENV
-          value: "production"
+        envFrom:
+        - configMapRef:
+            name: idurar-config
         livenessProbe:
           httpGet:
             path: /

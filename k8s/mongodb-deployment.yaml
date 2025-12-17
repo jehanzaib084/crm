@@ -27,12 +27,24 @@ spec:
     spec:
       containers:
       - name: mongodb
-        image: mongo:latest
+        image: mongo:7.0
         ports:
         - containerPort: 27017
         env:
         - name: MONGO_INITDB_DATABASE
           value: "idurar"
+        - name: MONGO_INITDB_ROOT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-secret
+              key: username
+              optional: true
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-secret
+              key: password
+              optional: true
         volumeMounts:
         - name: mongodb-storage
           mountPath: /data/db

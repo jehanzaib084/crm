@@ -1,0 +1,16 @@
+# Kubernetes secrets (never commit actual secrets)
+k8s/*-secret.yaml
+k8s/secret*.yaml
+!k8s/*-secret.yaml.example
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log

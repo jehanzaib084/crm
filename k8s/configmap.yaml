@@ -6,6 +6,9 @@ data:
   # Backend configuration
   PORT: "8888"
   NODE_ENV: "production"
+  # MongoDB connection - update with authentication if mongodb-secret is configured
+  # With auth: mongodb://username:password@mongodb-service:27017/idurar
+  # Without auth: mongodb://mongodb-service:27017/idurar
   DATABASE: "mongodb://mongodb-service:27017/idurar"
   
   # Frontend configuration (if needed)
