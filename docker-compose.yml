@@ -1,0 +1,67 @@
+version: "3.9"
+
+services:
+  # MongoDB Database
+  db:
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+    container_name: idurar-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+      - ./db/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    networks:
+      - idurar-network
+    environment:
+      MONGO_INITDB_DATABASE: idurar
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # Backend API (Node.js/Express)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: idurar-backend
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE=mongodb://db:27017/idurar
+      - PORT=8888
+      - NODE_ENV=production
+    depends_on:
+      - db
+    networks:
+      - idurar-network
+
+  # Frontend (React/Vite)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: idurar-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - idurar-network
+
+networks:
+  idurar-network:
+    driver: bridge
+
+volumes:
+  mongodb-data:
+    driver: local
