@@ -3,6 +3,19 @@
   become: yes
   
   tasks:
+    - name: Clean up existing Docker repository entries
+      shell: |
+        # Remove Docker entries from sources.list
+        sed -i '/download\.docker\.com/d' /etc/apt/sources.list 2>/dev/null || true
+        # Remove Docker entries from all sources.list.d files
+        find /etc/apt/sources.list.d -type f -name "*.list" -exec sed -i '/download\.docker\.com/d' {} \; 2>/dev/null || true
+        # Remove any Docker-specific source files
+        rm -f /etc/apt/sources.list.d/docker*.list 2>/dev/null || true
+        # Remove old keyring files that might cause conflicts
+        rm -f /etc/apt/keyrings/docker.asc /etc/apt/keyrings/docker.gpg 2>/dev/null || true
+      ignore_errors: yes
+      changed_when: false
+
     - name: Update apt cache
       apt:
         update_cache: yes
@@ -25,6 +38,10 @@
           - docker.io
           - docker-doc
           - docker-compose
+          - docker-compose-v2
+          - podman-docker
+          - containerd
+          - runc
         state: absent
         purge: yes
       ignore_errors: yes
@@ -37,14 +54,21 @@
           - lsb-release
         state: present
 
-    - name: Add Docker GPG key
-      apt_key:
+    - name: Create keyring directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Download Docker GPG key
+      get_url:
         url: https://download.docker.com/linux/ubuntu/gpg
-        state: present
+        dest: /etc/apt/keyrings/docker.asc
+        mode: '0644'
 
     - name: Add Docker repository
       apt_repository:
-        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
         state: present
 
     - name: Install Docker
@@ -127,6 +151,29 @@
   become: yes
   
   tasks:
+    - name: Clean up existing Docker repository entries
+      shell: |
+        # Remove Docker entries from sources.list
+        sed -i '/download\.docker\.com/d' /etc/apt/sources.list 2>/dev/null || true
+        # Remove Docker entries from all sources.list.d files
+        find /etc/apt/sources.list.d -type f -name "*.list" -exec sed -i '/download\.docker\.com/d' {} \; 2>/dev/null || true
+        # Remove any Docker-specific source files
+        rm -f /etc/apt/sources.list.d/docker*.list 2>/dev/null || true
+        # Remove old keyring files that might cause conflicts
+        rm -f /etc/apt/keyrings/docker.asc /etc/apt/keyrings/docker.gpg 2>/dev/null || true
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Wait for apt lock to be released
+      shell: |
+        while fuser /var/lib/apt/lists/lock /var/lib/dpkg/lock /var/cache/apt/archives/lock >/dev/null 2>&1; do
+          echo "Waiting for apt lock to be released..."
+          sleep 1
+        done
+      register: apt_lock_wait
+      changed_when: false
+      failed_when: false
+
     - name: Update apt cache
       apt:
         update_cache: yes
@@ -150,6 +197,10 @@
           - docker.io
           - docker-doc
           - docker-compose
+          - docker-compose-v2
+          - podman-docker
+          - containerd
+          - runc
         state: absent
         purge: yes
       ignore_errors: yes
@@ -162,14 +213,21 @@
           - lsb-release
         state: present
 
-    - name: Add Docker GPG key
-      apt_key:
+    - name: Create keyring directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Download Docker GPG key
+      get_url:
         url: https://download.docker.com/linux/ubuntu/gpg
-        state: present
+        dest: /etc/apt/keyrings/docker.asc
+        mode: '0644'
 
     - name: Add Docker repository
       apt_repository:
-        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
         state: present
 
     - name: Install Docker
@@ -252,6 +310,194 @@
         echo "Node.js: $(node --version)"
         echo "npm: $(npm --version)"
         echo "PM2: $(pm2 --version)"
+      register: verify_output
+      changed_when: false
+
+    - name: Display verification
+      debug:
+        msg: "{{ verify_output.stdout_lines }}"
+
+
+- name: Configure Database Servers - MongoDB and Docker
+  hosts: db-servers
+  become: yes
+  
+  tasks:
+    - name: Clean up existing Docker repository entries
+      shell: |
+        # Remove Docker entries from sources.list
+        sed -i '/download\.docker\.com/d' /etc/apt/sources.list 2>/dev/null || true
+        # Remove Docker entries from all sources.list.d files
+        find /etc/apt/sources.list.d -type f -name "*.list" -exec sed -i '/download\.docker\.com/d' {} \; 2>/dev/null || true
+        # Remove any Docker-specific source files
+        rm -f /etc/apt/sources.list.d/docker*.list 2>/dev/null || true
+        # Remove old keyring files that might cause conflicts
+        rm -f /etc/apt/keyrings/docker.asc /etc/apt/keyrings/docker.gpg 2>/dev/null || true
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Wait for apt lock to be released
+      shell: |
+        while fuser /var/lib/apt/lists/lock /var/lib/dpkg/lock /var/cache/apt/archives/lock >/dev/null 2>&1; do
+          echo "Waiting for apt lock to be released..."
+          sleep 1
+        done
+      register: apt_lock_wait
+      changed_when: false
+      failed_when: false
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install essential packages
+      apt:
+        name:
+          - curl
+          - wget
+          - gnupg
+          - ca-certificates
+          - software-properties-common
+          - python3
+          - python3-pip
+        state: present
+
+    - name: Remove old Docker packages
+      apt:
+        name:
+          - docker
+          - docker.io
+          - docker-doc
+          - docker-compose
+          - docker-compose-v2
+          - podman-docker
+          - containerd
+          - runc
+        state: absent
+        purge: yes
+      ignore_errors: yes
+
+    - name: Install Docker prerequisites
+      apt:
+        name:
+          - ca-certificates
+          - gnupg
+          - lsb-release
+        state: present
+
+    - name: Create keyring directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Download Docker GPG key
+      get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: '0644'
+
+    - name: Wait for apt lock before adding repository
+      shell: |
+        while fuser /var/lib/apt/lists/lock /var/lib/dpkg/lock /var/cache/apt/archives/lock >/dev/null 2>&1; do
+          echo "Waiting for apt lock to be released..."
+          sleep 1
+        done
+      register: apt_lock_wait_repo
+      changed_when: false
+      failed_when: false
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Configure containerd
+      shell: |
+        mkdir -p /etc/containerd
+        containerd config default | tee /etc/containerd/config.toml
+      args:
+        creates: /etc/containerd/config.toml
+      changed_when: false
+
+    - name: Start containerd
+      systemd:
+        name: containerd
+        state: started
+        enabled: yes
+
+    - name: Start and enable Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
+    - name: Wait for Docker socket
+      wait_for:
+        path: /var/run/docker.sock
+        state: present
+        timeout: 30
+
+    - name: Add user to docker group
+      user:
+        name: "{{ ansible_user | default('root') }}"
+        groups: docker
+        append: yes
+
+    - name: Download MongoDB GPG key
+      get_url:
+        url: https://www.mongodb.org/static/pgp/server-8.0.asc
+        dest: /tmp/mongodb-server-8.0.asc
+        mode: '0644'
+
+    - name: Import MongoDB GPG key
+      shell: |
+        gpg --dearmor < /tmp/mongodb-server-8.0.asc > /etc/apt/keyrings/mongodb-server-8.0.gpg
+        chmod 644 /etc/apt/keyrings/mongodb-server-8.0.gpg
+      args:
+        creates: /etc/apt/keyrings/mongodb-server-8.0.gpg
+
+    - name: Add MongoDB repository
+      apt_repository:
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/mongodb-server-8.0.gpg] https://repo.mongodb.org/apt/ubuntu {{ ansible_distribution_release }}/mongodb-org/8.0 multiverse"
+        state: present
+
+    - name: Install MongoDB
+      apt:
+        name: mongodb-org
+        state: present
+        update_cache: yes
+
+    - name: Start and enable MongoDB
+      systemd:
+        name: mongod
+        state: started
+        enabled: yes
+
+    - name: Create MongoDB data directory
+      file:
+        path: /data/db
+        state: directory
+        mode: '0755'
+        owner: mongodb
+        group: mongodb
+
+    - name: Verify installations
+      shell: |
+        echo "Docker: $(docker --version)"
+        echo "MongoDB: $(mongod --version 2>&1 | head -1)"
       register: verify_output
       changed_when: false
 
