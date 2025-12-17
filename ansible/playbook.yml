@@ -1,0 +1,250 @@
+---
+- name: Configure Web Servers - Nginx and Docker
+  hosts: web-servers
+  become: yes
+  
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install essential packages
+      apt:
+        name:
+          - curl
+          - wget
+          - git
+          - python3
+          - python3-pip
+        state: present
+
+    - name: Remove old Docker packages
+      apt:
+        name:
+          - docker
+          - docker.io
+          - docker-doc
+          - docker-compose
+        state: absent
+        purge: yes
+      ignore_errors: yes
+
+    - name: Install Docker prerequisites
+      apt:
+        name:
+          - ca-certificates
+          - gnupg
+          - lsb-release
+        state: present
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Configure containerd
+      shell: |
+        mkdir -p /etc/containerd
+        containerd config default | tee /etc/containerd/config.toml
+      args:
+        creates: /etc/containerd/config.toml
+      changed_when: false
+
+    - name: Start containerd
+      systemd:
+        name: containerd
+        state: started
+        enabled: yes
+
+    - name: Start and enable Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
+    - name: Wait for Docker socket
+      wait_for:
+        path: /var/run/docker.sock
+        state: present
+        timeout: 30
+
+    - name: Add user to docker group
+      user:
+        name: "{{ ansible_user | default('root') }}"
+        groups: docker
+        append: yes
+
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    - name: Start and enable Nginx
+      systemd:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Create web directory
+      file:
+        path: /var/www/html
+        state: directory
+        mode: '0755'
+        owner: www-data
+        group: www-data
+
+    - name: Verify installations
+      shell: |
+        echo "Docker: $(docker --version)"
+        echo "Nginx: $(nginx -v 2>&1)"
+      register: verify_output
+      changed_when: false
+
+    - name: Display verification
+      debug:
+        msg: "{{ verify_output.stdout_lines }}"
+
+---
+- name: Configure Application Servers - Node.js and Docker
+  hosts: app-servers
+  become: yes
+  
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install essential packages
+      apt:
+        name:
+          - curl
+          - wget
+          - git
+          - build-essential
+          - python3
+          - python3-pip
+        state: present
+
+    - name: Remove old Docker packages
+      apt:
+        name:
+          - docker
+          - docker.io
+          - docker-doc
+          - docker-compose
+        state: absent
+        purge: yes
+      ignore_errors: yes
+
+    - name: Install Docker prerequisites
+      apt:
+        name:
+          - ca-certificates
+          - gnupg
+          - lsb-release
+        state: present
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Configure containerd
+      shell: |
+        mkdir -p /etc/containerd
+        containerd config default | tee /etc/containerd/config.toml
+      args:
+        creates: /etc/containerd/config.toml
+      changed_when: false
+
+    - name: Start containerd
+      systemd:
+        name: containerd
+        state: started
+        enabled: yes
+
+    - name: Start and enable Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
+    - name: Wait for Docker socket
+      wait_for:
+        path: /var/run/docker.sock
+        state: present
+        timeout: 30
+
+    - name: Add user to docker group
+      user:
+        name: "{{ ansible_user | default('root') }}"
+        groups: docker
+        append: yes
+
+    - name: Install Node.js and npm
+      apt:
+        name:
+          - nodejs
+          - npm
+        state: present
+        update_cache: yes
+
+    - name: Install PM2 globally
+      npm:
+        name: pm2
+        global: yes
+        state: present
+
+    - name: Create application directory
+      file:
+        path: /opt/idurar-app
+        state: directory
+        mode: '0755'
+
+    - name: Verify installations
+      shell: |
+        echo "Docker: $(docker --version)"
+        echo "Node.js: $(node --version)"
+        echo "npm: $(npm --version)"
+        echo "PM2: $(pm2 --version)"
+      register: verify_output
+      changed_when: false
+
+    - name: Display verification
+      debug:
+        msg: "{{ verify_output.stdout_lines }}"

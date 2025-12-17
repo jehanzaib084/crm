@@ -38,9 +38,11 @@ metadata:
     app: frontend
   annotations:
     service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /
+    # Azure DNS label - will create: idurar-crm.<region>.cloudapp.azure.com
     service.beta.kubernetes.io/azure-dns-label-name: idurar-crm
 spec:
   type: LoadBalancer
+  loadBalancerIP: ""  # Let Azure assign automatically
   ports:
   - port: 80
     targetPort: 80
