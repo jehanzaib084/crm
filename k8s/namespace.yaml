@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: idurar-crm
+  labels:
+    name: idurar-crm
+    app: idurar-erp-crm

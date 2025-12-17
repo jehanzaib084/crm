@@ -31,6 +31,11 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(compression());
 
+// Health check endpoint for Kubernetes
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // // default options
 // app.use(fileUpload());
 
