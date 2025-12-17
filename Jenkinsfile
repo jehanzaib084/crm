@@ -26,6 +26,24 @@ pipeline {
     }
     
     stages {
+        stage('Validate Configuration') {
+            steps {
+                script {
+                    echo 'Validating pipeline configuration...'
+                    
+                    // Check for placeholder values
+                    if (env.DOCKER_NAMESPACE == 'your-namespace') {
+                        error('DOCKER_NAMESPACE is not configured! Please update the Jenkinsfile with your actual Docker registry namespace.')
+                    }
+                    
+                    echo "✓ Docker Registry: ${DOCKER_REGISTRY}"
+                    echo "✓ Docker Namespace: ${DOCKER_NAMESPACE}"
+                    echo "✓ Kubernetes Namespace: ${K8S_NAMESPACE}"
+                    echo "Configuration validation passed!"
+                }
+            }
+        }
+        
         stage('Checkout') {
             steps {
                 echo 'Checking out source code...'

@@ -40,7 +40,35 @@ kubectl create secret docker-registry docker-registry-secret \
   -n crm-production
 ```
 
-### 4. Deploy Application
+### 4. Build and Push Docker Images (First Time)
+
+**IMPORTANT**: Before deploying, you must build and push Docker images first, or update the image names in the deployment YAML files to valid images.
+
+Option A - Using Jenkins pipeline (recommended):
+```bash
+# Run the Jenkins pipeline once to build and push images
+# The pipeline will automatically update the deployments
+```
+
+Option B - Manual build and push:
+```bash
+# Build images
+cd ..
+docker build -t your-registry/your-namespace/crm-backend:latest ./backend
+docker build -t your-registry/your-namespace/crm-frontend:latest ./frontend
+docker build -t your-registry/your-namespace/crm-database:latest ./db
+
+# Push to registry
+docker push your-registry/your-namespace/crm-backend:latest
+docker push your-registry/your-namespace/crm-frontend:latest
+docker push your-registry/your-namespace/crm-database:latest
+
+# Update image names in deployment files
+# Edit backend-deployment.yaml, frontend-deployment.yaml with your actual image names
+cd k8s
+```
+
+### 5. Deploy Application
 
 Apply configurations in order:
 
@@ -54,10 +82,10 @@ kubectl apply -f mongodb-deployment.yaml -n crm-production
 # Wait for MongoDB to be ready
 kubectl wait --for=condition=ready pod -l app=mongodb -n crm-production --timeout=300s
 
-# Deploy Backend
+# Deploy Backend (ensure image name is correct in the YAML)
 kubectl apply -f backend-deployment.yaml -n crm-production
 
-# Deploy Frontend
+# Deploy Frontend (ensure image name is correct in the YAML)
 kubectl apply -f frontend-deployment.yaml -n crm-production
 
 # Optional: Deploy Ingress (requires Ingress controller)

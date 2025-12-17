@@ -39,7 +39,9 @@ spec:
     spec:
       containers:
         - name: crm-frontend
-          image: your-registry/your-namespace/crm-frontend:latest  # This will be updated by Jenkins
+          # Image will be updated by Jenkins pipeline or manually set
+          # For initial deployment, build and push image first, then update this line
+          image: your-registry/your-namespace/crm-frontend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 80
