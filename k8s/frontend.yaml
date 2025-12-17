@@ -36,6 +36,9 @@ metadata:
   namespace: idurar-crm
   labels:
     app: frontend
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /
+    service.beta.kubernetes.io/azure-dns-label-name: idurar-crm
 spec:
   type: LoadBalancer
   ports:

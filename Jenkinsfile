@@ -258,6 +258,20 @@ pipeline {
                                     echo "📊 Deployment Status:"
                                     kubectl get pods -n idurar-crm
                                     kubectl get svc -n idurar-crm
+                                    echo ""
+                                    echo "🌐 Waiting for LoadBalancer external IP..."
+                                    sleep 10
+                                    EXTERNAL_IP=$(kubectl get svc frontend -n idurar-crm -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+                                    EXTERNAL_HOSTNAME=$(kubectl get svc frontend -n idurar-crm -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
+                                    
+                                    if [ -n "$EXTERNAL_IP" ]; then
+                                        echo "✅ Frontend External IP: http://${EXTERNAL_IP}"
+                                    elif [ -n "$EXTERNAL_HOSTNAME" ]; then
+                                        echo "✅ Frontend External Hostname: http://${EXTERNAL_HOSTNAME}"
+                                    else
+                                        echo "⏳ LoadBalancer IP is still provisioning..."
+                                        echo "   Run this command to check: kubectl get svc frontend -n idurar-crm"
+                                    fi
                                 '''
                             }
                         } catch (Exception e) {
@@ -281,6 +295,18 @@ pipeline {
                                     echo "📊 Final Deployment Status:"
                                     kubectl get pods -n idurar-crm 2>/dev/null || echo "⚠️ Pods not found"
                                     kubectl get svc -n idurar-crm 2>/dev/null || echo "⚠️ Services not found"
+                                    echo ""
+                                    echo "🌐 Frontend Access URL:"
+                                    EXTERNAL_IP=$(kubectl get svc frontend -n idurar-crm -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+                                    EXTERNAL_HOSTNAME=$(kubectl get svc frontend -n idurar-crm -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
+                                    
+                                    if [ -n "$EXTERNAL_IP" ]; then
+                                        echo "   ✅ http://${EXTERNAL_IP}"
+                                    elif [ -n "$EXTERNAL_HOSTNAME" ]; then
+                                        echo "   ✅ http://${EXTERNAL_HOSTNAME}"
+                                    else
+                                        echo "   ⏳ Still provisioning... Check with: kubectl get svc frontend -n idurar-crm"
+                                    fi
                                 '''
                             }
                         } catch (Exception e) {
