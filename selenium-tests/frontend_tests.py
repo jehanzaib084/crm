@@ -25,12 +25,12 @@ def take_screenshot(driver, name):
     """Take a screenshot"""
     filename = f"{SCREENSHOT_DIR}/{name}.png"
     driver.save_screenshot(filename)
-    print(f"  📸 Screenshot: {filename}")
+    print(f"  Screenshot: {filename}")
     return filename
 
 def setup_driver():
     """Setup Chrome driver"""
-    print("  🔧 Setting up Chrome browser...")
+    print("  Setting up Chrome browser...")
     options = Options()
     # Uncomment for headless mode (no browser window)
     # options.add_argument('--headless')
@@ -298,7 +298,7 @@ def main():
     
     # Print summary
     print("\n" + "="*70)
-    print("📊 TEST EXECUTION SUMMARY")
+    print("TEST EXECUTION SUMMARY")
     print("="*70)
     
     passed = sum(1 for _, result in results if result)
