@@ -1,26 +1,26 @@
 @echo off
 echo ========================================
-echo IDURAR ERP CRM - Selenium Tests
+echo IDURAR ERP CRM - Frontend Tests
 echo ========================================
 echo.
 
 REM Check if Python is installed
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo ERROR: Python is not installed or not in PATH
+    echo ERROR: Python is not installed!
     echo Please install Python from https://www.python.org/downloads/
     pause
     exit /b 1
 )
 
 echo Installing dependencies...
-pip install -r requirements_simple.txt
+pip install selenium webdriver-manager
 
 echo.
-echo Running tests...
+echo Running frontend tests...
 echo.
 
-python simple_test.py
+python frontend_tests.py
 
 echo.
 echo ========================================
