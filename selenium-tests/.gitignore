@@ -1,0 +1,23 @@
+# Screenshots
+screenshots/*.png
+!screenshots/.gitkeep
+
+# Reports
+reports/*.html
+!reports/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
