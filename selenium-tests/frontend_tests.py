@@ -43,7 +43,9 @@ def setup_driver():
     return driver
 
 def find_and_fill_login_form(driver, email, password):
-    """Helper function to find and fill login form (Ant Design)"""
+    """Helper function to find and fill login form (Ant Design)
+    Checks if form is already prefilled, if yes just returns, if no then fills it
+    """
     # Wait for page to load
     time.sleep(2)
     
@@ -87,7 +89,20 @@ def find_and_fill_login_form(driver, email, password):
     if not password_input:
         raise Exception("Password input field not found")
     
-    # Clear and fill in credentials (form may be prefilled)
+    # Check if form is already prefilled with correct credentials
+    email_value = email_input.get_attribute("value") or ""
+    
+    # For password fields, value might not be accessible for security reasons
+    # So we check email and if it matches, assume password is also prefilled
+    # If email doesn't match or is empty, we fill both fields
+    
+    if email_value.strip() == email:
+        print("  Form already prefilled with correct credentials")
+        print("  Email field has correct value, proceeding to submit")
+        return email_input, password_input
+    
+    # If not prefilled or values don't match, fill the form
+    print("  Form not prefilled or values don't match, filling in credentials...")
     email_input.click()
     email_input.clear()
     time.sleep(0.3)
